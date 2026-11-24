@@ -1,0 +1,6 @@
+<Application x:Class="DocFlow.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- StartupUri is omitted because MainWindow is resolved via Dependency Injection in App.xaml.cs -->
+    <Application.Resources />
+</Application>

@@ -1,0 +1,12 @@
+<!-- Visual Studio / .NET SDK Solution organizing core engine, infrastructure, web API, desktop GUI, and tests -->
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DocFlow.Core/DocFlow.Core.csproj" />
+    <Project Path="src/DocFlow.Infrastructure/DocFlow.Infrastructure.csproj" />
+    <Project Path="src/DocFlow.Api/DocFlow.Api.csproj" />
+    <Project Path="src/DocFlow.Desktop/DocFlow.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DocFlow.Tests/DocFlow.Tests.csproj" />
+  </Folder>
+</Solution>

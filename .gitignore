@@ -1,0 +1,13 @@
+# Build outputs and IDE caches
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Local SQLite databases and runtime staging folders
+*.db
+*.db-shm
+*.db-wal
+uploads/
+exports/

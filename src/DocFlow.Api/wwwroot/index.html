@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocFlow Web Workbench</title>
+  <style>
+    /* Clean dark-mode dashboard styling */
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; background: #0f172a; color: #f8fafc; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; }
+    button { background: #2563eb; color: #fff; border: none; padding: 0.55rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.65rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>DocFlow Async Document Pipeline (Web UI)</h1>
+
+  <!-- Batch file upload card -->
+  <div class="card">
+    <input type="file" id="fileInput" multiple />
+    <button onclick="uploadFiles()">Upload & Queue</button>
+  </div>
+
+  <!-- Live job monitoring table -->
+  <div class="card">
+    <h3>Live Job Queue</h3>
+    <table>
+      <thead><tr><th>File</th><th>Status</th><th>Stage</th><th>Invoice #</th><th>Total</th></tr></thead>
+      <tbody id="jobsBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // Fetch current job states from the ASP.NET Core API and render rows
+    async function loadJobs() {
+      const res = await fetch('/api/jobs');
+      const jobs = await res.json();
+      document.getElementById('jobsBody').innerHTML = jobs.map(j => `
+        <tr>
+          <td>${j.fileName}</td>
+          <td>${j.status}</td>
+          <td>${j.stage}</td>
+          <td>${j.extractedData?.invoiceNumber ?? '-'}</td>
+          <td>${j.extractedData ? '$' + j.extractedData.totalAmount.toFixed(2) : '-'}</td>
+        </tr>`).join('');
+    }
+
+    // Submit selected files asynchronously via multipart FormData
+    async function uploadFiles() {
+      const input = document.getElementById('fileInput');
+      if (!input.files.length) return;
+      const fd = new FormData();
+      for (const f of input.files) fd.append('files', f);
+      await fetch('/api/documents', { method: 'POST', body: fd });
+      input.value = '';
+      loadJobs();
+    }
+
+    // Poll periodically for updates (can also bind directly to /hubs/pipeline via SignalR client)
+    setInterval(loadJobs, 1500);
+    loadJobs();
+  </script>
+</body>
+</html>
