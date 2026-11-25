@@ -11,3 +11,5 @@ obj/
 *.db-wal
 uploads/
 exports/
+**/tessdata/*.traineddata
+/DocFlow-Async-Pipeline.zip

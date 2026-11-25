@@ -1,65 +1,103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DocFlow Web Workbench</title>
-  <style>
-    /* Clean dark-mode dashboard styling */
-    body { font-family: system-ui, -apple-system, sans-serif; margin: 2rem; background: #0f172a; color: #f8fafc; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; }
-    button { background: #2563eb; color: #fff; border: none; padding: 0.55rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td { text-align: left; padding: 0.65rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DocFlow document processing workbench">
+  <title>DocFlow Workbench</title>
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <script defer src="https://unpkg.com/@microsoft/signalr@11.0.0/dist/browser/signalr.min.js"></script>
+  <script defer src="/js/app.js"></script>
 </head>
 <body>
-  <h1>DocFlow Async Document Pipeline (Web UI)</h1>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="DocFlow home">
+      <span class="brand-mark" aria-hidden="true">D</span>
+      <span>DocFlow <small>DOCUMENT WORKBENCH</small></span>
+    </a>
+    <a class="button button-secondary" href="/api/jobs/export">Export CSV</a>
+  </header>
 
-  <!-- Batch file upload card -->
-  <div class="card">
-    <input type="file" id="fileInput" multiple />
-    <button onclick="uploadFiles()">Upload & Queue</button>
-  </div>
+  <main class="page-shell">
+    <section class="page-heading" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">ASYNC DOCUMENT PIPELINE</p>
+        <h1 id="page-title">Processing workbench</h1>
+        <p class="muted">Upload documents, follow extraction progress, and review exceptions.</p>
+      </div>
+      <form id="upload-form" class="upload-form">
+        <label class="file-picker" for="document-files">Choose documents</label>
+        <input id="document-files" name="files" type="file" multiple
+              accept=".pdf,.docx,.pptx,.html,.htm,.png,.jpg,.jpeg,.webp,.txt,.csv,.json,.md">
+        <button class="button button-primary" type="submit">Upload and queue</button>
+      </form>
+    </section>
 
-  <!-- Live job monitoring table -->
-  <div class="card">
-    <h3>Live Job Queue</h3>
-    <table>
-      <thead><tr><th>File</th><th>Status</th><th>Stage</th><th>Invoice #</th><th>Total</th></tr></thead>
-      <tbody id="jobsBody"></tbody>
-    </table>
-  </div>
+    <section class="summary-grid" aria-label="Job totals">
+      <article class="summary-card"><span>All jobs</span><strong id="count-all">0</strong></article>
+      <article class="summary-card"><span>Processing</span><strong id="count-processing">0</strong></article>
+      <article class="summary-card"><span>Needs review</span><strong id="count-review">0</strong></article>
+      <article class="summary-card"><span>Completed</span><strong id="count-completed">0</strong></article>
+    </section>
 
-  <script>
-    // Fetch current job states from the ASP.NET Core API and render rows
-    async function loadJobs() {
-      const res = await fetch('/api/jobs');
-      const jobs = await res.json();
-      document.getElementById('jobsBody').innerHTML = jobs.map(j => `
-        <tr>
-          <td>${j.fileName}</td>
-          <td>${j.status}</td>
-          <td>${j.stage}</td>
-          <td>${j.extractedData?.invoiceNumber ?? '-'}</td>
-          <td>${j.extractedData ? '$' + j.extractedData.totalAmount.toFixed(2) : '-'}</td>
-        </tr>`).join('');
-    }
+    <section class="jobs-panel" aria-labelledby="jobs-title">
+      <div class="panel-heading">
+        <div>
+          <h2 id="jobs-title">Documents</h2>
+          <p class="muted">Live job status and extracted invoice data</p>
+        </div>
+        <label class="filter-label" for="status-filter">Status
+          <select id="status-filter">
+            <option value="all">All jobs</option>
+            <option value="Queued">Queued</option>
+            <option value="Processing">Processing</option>
+            <option value="NeedsReview">Needs review</option>
+            <option value="Completed">Completed</option>
+            <option value="Failed">Failed</option>
+          </select>
+        </label>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Document</th>
+              <th scope="col">Status</th>
+              <th scope="col">Invoice</th>
+              <th scope="col">Vendor</th>
+              <th scope="col">Total</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+      </div>
+      <p id="empty-state" class="empty-state">No documents yet. Choose files above to start a batch.</p>
+    </section>
+    <p id="announcement" class="announcement" role="status" aria-live="polite"></p>
+  </main>
 
-    // Submit selected files asynchronously via multipart FormData
-    async function uploadFiles() {
-      const input = document.getElementById('fileInput');
-      if (!input.files.length) return;
-      const fd = new FormData();
-      for (const f of input.files) fd.append('files', f);
-      await fetch('/api/documents', { method: 'POST', body: fd });
-      input.value = '';
-      loadJobs();
-    }
-
-    // Poll periodically for updates (can also bind directly to /hubs/pipeline via SignalR client)
-    setInterval(loadJobs, 1500);
-    loadJobs();
-  </script>
+  <dialog id="review-dialog" class="review-dialog">
+    <form id="review-form" method="dialog">
+      <div class="dialog-heading">
+        <div><p class="eyebrow">HUMAN REVIEW</p><h2>Confirm invoice details</h2></div>
+        <button class="icon-button" type="button" id="close-review" aria-label="Close review">×</button>
+      </div>
+      <input id="review-job-id" type="hidden">
+      <label>Invoice number<input id="review-invoice-number" required></label>
+      <label>Vendor name<input id="review-vendor-name" required></label>
+      <label>Issue date<input id="review-issue-date" type="date"></label>
+      <div class="amount-grid">
+        <label>Subtotal<input id="review-subtotal" type="number" step="0.01" min="0"></label>
+        <label>Tax<input id="review-tax" type="number" step="0.01" min="0"></label>
+        <label>Total<input id="review-total" type="number" step="0.01" min="0" required></label>
+      </div>
+      <div class="dialog-actions">
+        <button class="button button-secondary" type="button" id="cancel-review">Cancel</button>
+        <button class="button button-primary" type="submit">Approve invoice</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

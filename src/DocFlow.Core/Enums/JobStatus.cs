@@ -5,11 +5,16 @@ namespace DocFlow.Core.Enums;
 /// </summary>
 public enum JobStatus
 {
-    Queued,       // Accepted by intake and waiting in the background queue
-    Processing,   // Actively being handled by a background worker
-    NeedsReview,  // Extracted successfully, but flagged for human verification
-    Completed,    // Passed validation and saved cleanly
-    Failed        // Exhausted retries or encountered an unrecoverable error
+    /// <summary>Accepted by intake and waiting in the background queue.</summary>
+    Queued,
+    /// <summary>Actively being handled by a background worker.</summary>
+    Processing,
+    /// <summary>Extracted successfully but flagged for human verification.</summary>
+    NeedsReview,
+    /// <summary>Passed validation and saved cleanly.</summary>
+    Completed,
+    /// <summary>Exhausted retries or encountered an unrecoverable error.</summary>
+    Failed
 }
 
 /// <summary>
@@ -17,9 +22,14 @@ public enum JobStatus
 /// </summary>
 public enum PipelineStage
 {
-    Pending,      // Not yet picked up by a worker
-    Extracting,   // Parsing text, fields, or line items from the raw file
-    Validating,   // Running business and financial accuracy checks
-    Saving,       // Persisting validated output to storage/database
-    Done          // Terminal stage reached (Completed, NeedsReview, or Failed)
+    /// <summary>Not yet picked up by a worker.</summary>
+    Pending,
+    /// <summary>Parsing text, fields, or line items from the raw file.</summary>
+    Extracting,
+    /// <summary>Running business and financial accuracy checks.</summary>
+    Validating,
+    /// <summary>Persisting validated output to storage.</summary>
+    Saving,
+    /// <summary>Terminal stage reached.</summary>
+    Done
 }

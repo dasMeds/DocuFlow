@@ -1,11 +1,9 @@
+using System.IO;
 using System.Windows;
 using DocFlow.Core.Interfaces;
 using DocFlow.Desktop.Services;
 using DocFlow.Desktop.ViewModels;
-using DocFlow.Infrastructure.Persistence;
-using DocFlow.Infrastructure.Processors;
-using DocFlow.Infrastructure.Queue;
-using DocFlow.Infrastructure.Workers;
+using DocFlow.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -24,15 +22,12 @@ public partial class App : Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
-                // Register shared pipeline queue, repository, processor, and background worker
-                services.AddSingleton<IDocumentQueue, ChannelDocumentQueue>();
-                services.AddSingleton<IJobRepository, InMemoryJobRepository>();
-                services.AddSingleton<IDocumentProcessor, TextRuleDocumentProcessor>();
+                services.AddDocFlowProcessing(
+                    Path.Combine(AppContext.BaseDirectory, "tessdata"),
+                    Environment.GetEnvironmentVariable("TESSERACT_EXECUTABLE") ?? "tesseract");
                 services.AddSingleton<UiPipelineNotifier>();
                 services.AddSingleton<IPipelineNotifier>(sp => sp.GetRequiredService<UiPipelineNotifier>());
-                services.AddHostedService<DocumentProcessingWorker>();
 
-                // Register MVVM ViewModel and main window
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

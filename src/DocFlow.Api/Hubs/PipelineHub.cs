@@ -16,6 +16,9 @@ public sealed class SignalRPipelineNotifier : IPipelineNotifier
 {
     private readonly IHubContext<PipelineHub> _hubContext;
 
+    /// <summary>
+    /// Creates the SignalR adapter used by API and worker notifications.
+    /// </summary>
     public SignalRPipelineNotifier(IHubContext<PipelineHub> hubContext)
     {
         _hubContext = hubContext;

@@ -7,6 +7,9 @@ namespace DocFlow.Core.Validation;
 /// </summary>
 public static class InvoiceValidator
 {
+    /// <summary>
+    /// Validates required invoice fields and checks the subtotal-plus-tax total within one cent.
+    /// </summary>
     public static (bool IsValid, string? Issue) Validate(ExtractedInvoice invoice)
     {
         if (string.IsNullOrWhiteSpace(invoice.InvoiceNumber))

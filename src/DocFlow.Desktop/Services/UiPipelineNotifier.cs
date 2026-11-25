@@ -11,6 +11,7 @@ public sealed class UiPipelineNotifier : IPipelineNotifier
 {
     public event Action<DocumentJob>? JobUpdated;
 
+    /// <inheritdoc />
     public Task NotifyJobUpdatedAsync(DocumentJob job, CancellationToken ct = default)
     {
         // Dispatcher.InvokeAsync prevents cross-thread UI exceptions

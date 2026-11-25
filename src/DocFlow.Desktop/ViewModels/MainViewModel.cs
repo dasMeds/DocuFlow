@@ -13,14 +13,23 @@ public sealed class MainViewModel
 {
     private readonly IDocumentQueue _queue;
     private readonly IJobRepository _repository;
+    private readonly IDocumentProcessorFactory _processorFactory;
 
     // ObservableCollection automatically notifies the DataGrid when items are added or replaced
     public ObservableCollection<DocumentJob> Jobs { get; } = new();
 
-    public MainViewModel(IDocumentQueue queue, IJobRepository repository, UiPipelineNotifier notifier)
+    /// <summary>
+    /// Creates the desktop view model and subscribes to worker status changes.
+    /// </summary>
+    public MainViewModel(
+        IDocumentQueue queue,
+        IJobRepository repository,
+        IDocumentProcessorFactory processorFactory,
+        UiPipelineNotifier notifier)
     {
         _queue = queue;
         _repository = repository;
+        _processorFactory = processorFactory;
         notifier.JobUpdated += OnJobUpdated;
     }
 
@@ -35,13 +44,24 @@ public sealed class MainViewModel
             var job = new DocumentJob
             {
                 FileName = info.Name,
+                FileType = Path.GetExtension(info.Name).ToLowerInvariant(),
                 StoragePath = info.FullName,
                 FileSizeBytes = info.Exists ? info.Length : 0
             };
 
+            if (!_processorFactory.Supports(job.FileType))
+            {
+                job.Status = DocFlow.Core.Enums.JobStatus.Failed;
+                job.Stage = DocFlow.Core.Enums.PipelineStage.Done;
+                job.ErrorMessage = $"Unsupported file format: {job.FileType}";
+                job.ReviewNote = job.ErrorMessage;
+                job.CompletedAt = DateTimeOffset.UtcNow;
+            }
+
             await _repository.AddAsync(job);
             Jobs.Insert(0, job);
-            await _queue.EnqueueAsync(job.Id);
+            if (job.Status == DocFlow.Core.Enums.JobStatus.Queued)
+                await _queue.EnqueueAsync(job.Id);
         }
     }
 

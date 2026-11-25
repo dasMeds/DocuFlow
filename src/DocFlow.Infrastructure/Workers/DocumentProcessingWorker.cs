@@ -14,24 +14,33 @@ public sealed class DocumentProcessingWorker : BackgroundService
 {
     private readonly IDocumentQueue _queue;
     private readonly IJobRepository _repository;
-    private readonly IEnumerable<IDocumentProcessor> _processors;
+    private readonly IDocumentProcessorFactory _processorFactory;
+    private readonly IInvoiceFieldExtractor _fieldExtractor;
     private readonly IPipelineNotifier _notifier;
     private readonly ILogger<DocumentProcessingWorker> _logger;
 
+    /// <summary>
+    /// Creates a worker with queue, persistence, parsing, and notification services.
+    /// </summary>
     public DocumentProcessingWorker(
         IDocumentQueue queue,
         IJobRepository repository,
-        IEnumerable<IDocumentProcessor> processors,
+        IDocumentProcessorFactory processorFactory,
+        IInvoiceFieldExtractor fieldExtractor,
         IPipelineNotifier notifier,
         ILogger<DocumentProcessingWorker> logger)
     {
         _queue = queue;
         _repository = repository;
-        _processors = processors;
+        _processorFactory = processorFactory;
+        _fieldExtractor = fieldExtractor;
         _notifier = notifier;
         _logger = logger;
     }
 
+    /// <summary>
+    /// Dequeues jobs, extracts invoice fields, validates results, and retries transient failures.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("DocFlow Background Worker started.");
@@ -51,12 +60,16 @@ public sealed class DocumentProcessingWorker : BackgroundService
                 await _repository.UpdateAsync(job, stoppingToken);
                 await _notifier.NotifyJobUpdatedAsync(job, stoppingToken);
 
-                // Resolve a processor capable of handling the file's extension
-                var ext = Path.GetExtension(job.FileName);
-                var processor = _processors.FirstOrDefault(p => p.CanHandle(ext))
-                    ?? throw new NotSupportedException($"Unsupported file format: {ext}");
-
-                var extracted = await processor.ExtractAsync(job.StoragePath, stoppingToken);
+                var extension = string.IsNullOrWhiteSpace(job.FileType)
+                    ? Path.GetExtension(job.FileName)
+                    : job.FileType;
+                var processor = _processorFactory.GetProcessor(extension);
+                var extraction = await processor.ExtractTextAsync(job.StoragePath, stoppingToken);
+                job.RawTextSnippet = extraction.Text.Length <= 500
+                    ? extraction.Text
+                    : extraction.Text[..500];
+                job.ProcessingDiagnostic = extraction.Diagnostic;
+                var extracted = _fieldExtractor.Extract(extraction.Text);
                 job.ExtractedData = extracted;
 
                 // Stage 2: Validate extracted fields against business rules
@@ -65,11 +78,11 @@ public sealed class DocumentProcessingWorker : BackgroundService
                 await _notifier.NotifyJobUpdatedAsync(job, stoppingToken);
 
                 var (isValid, issue) = InvoiceValidator.Validate(extracted);
-                if (!isValid)
+                if (!isValid || extraction.Diagnostic is not null)
                 {
                     // Route discrepancies to human-in-the-loop review rather than failing hard
                     job.Status = JobStatus.NeedsReview;
-                    job.ReviewNote = issue;
+                    job.ReviewNote = extraction.Diagnostic ?? issue ?? "Document extraction requires manual review.";
                     job.Stage = PipelineStage.Done;
                 }
                 else
@@ -80,6 +93,8 @@ public sealed class DocumentProcessingWorker : BackgroundService
                     job.Status = JobStatus.Completed;
                     job.Stage = PipelineStage.Done;
                     job.CompletedAt = DateTimeOffset.UtcNow;
+                    job.ErrorMessage = null;
+                    job.ReviewNote = null;
                 }
 
                 await _repository.UpdateAsync(job, stoppingToken);
